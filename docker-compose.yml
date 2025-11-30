@@ -1,0 +1,68 @@
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: mod4-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: mod4-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  lambda-producer:
+    build: ./lambda-producer
+    container_name: mod4-lambda-producer
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_APPLICATION_NAME: "retrocore-mod4-lambda-producer"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      APP_KAFKA_TOPIC_ANALYTICS: "retrocore-mod4-analytics"
+      APP_KAFKA_TOPIC_MONITORING: "retrocore-mod4-monitoring"
+    depends_on:
+      - kafka
+
+  lambda-consumer-analytics:
+    build: ./lambda-consumer-analytics
+    container_name: mod4-lambda-consumer-analytics
+    environment:
+      SPRING_APPLICATION_NAME: "retrocore-mod4-lambda-consumer-analytics"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      APP_KAFKA_TOPIC: "retrocore-mod4-analytics"
+    depends_on:
+      - kafka
+
+  lambda-consumer-monitoring:
+    build: ./lambda-consumer-monitoring
+    container_name: mod4-lambda-consumer-monitoring
+    environment:
+      SPRING_APPLICATION_NAME: "retrocore-mod4-lambda-consumer-monitoring"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      APP_KAFKA_TOPIC: "retrocore-mod4-monitoring"
+    depends_on:
+      - kafka
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: mod4-kafdrop
+    depends_on:
+      - kafka
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKER_CONNECT: "kafka:9092"
